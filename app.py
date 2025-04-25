@@ -194,7 +194,7 @@ AUTODAMAGE AI REPORT
     - Damage Areas Found: {damage_count}
     - Severity: {severity}
     - Estimated Repair Cost: cost = f"€{800 + damage_count * 250}"  # Alternative formatting
-    """
+    
     st.download_button(
         label="📄 Download Full Report",
         data=report_text,
