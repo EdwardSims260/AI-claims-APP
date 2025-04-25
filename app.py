@@ -1,3 +1,10 @@
+st.set_page_config(
+    page_title="AutoDamage AI",
+    page_icon="🚗",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 import streamlit as st
 import torch
 from PIL import Image
@@ -50,12 +57,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # App Configuration
-st.set_page_config(
-    page_title="AutoDamage AI",
-    page_icon="🚗",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Sidebar
 with st.sidebar:
