@@ -1,5 +1,0 @@
-mkdir .streamlit
-echo "[server]\nheadless = true\nport = 8501\nenableCORS = false" > .streamlit/config.toml
-git add .streamlit/config.toml
-git commit -m "Add Streamlit config"
-git push origin main
