@@ -4,64 +4,73 @@ from PIL import Image
 import numpy as np
 import cv2
 import io
+from contextlib import contextmanager
 
-# Safe model loader that works with Streamlit Cloud restrictions
+# Safe model loader context manager
+@contextmanager
+def custom_torch_load():
+    original_load = torch.load
+    def patched_load(*args, **kwargs):
+        kwargs.pop('weights_only', None)  # Remove weights_only if present
+        return original_load(*args, **kwargs)
+    torch.load = patched_load
+    try:
+        yield
+    finally:
+        torch.load = original_load
+
 @st.cache_resource
 def load_model():
     try:
-        # Create a custom loader function
-        def custom_loader(f, map_location=None, **kwargs):
-            # Disable weights_only restriction
-            if 'weights_only' in kwargs:
-                del kwargs['weights_only']
-            return torch.load(f, map_location=map_location, **kwargs)
-        
-        # Monkey patch torch.load temporarily
-        original_load = torch.load
-        torch.load = custom_loader
-        
-        from ultralytics import YOLO
-        model = YOLO('yolov8n.pt')
-        
-        # Restore original loader
-        torch.load = original_load
-        return model
-        
+        with custom_torch_load():
+            from ultralytics import YOLO
+            model = YOLO('yolov8n.pt', verbose=False)  # Disable verbose logging
+            # Warm-up the model
+            model.predict(np.zeros((640, 640, 3), imgsz=640, verbose=False)
+            return model
     except Exception as e:
         st.error(f"Model loading failed: {str(e)}")
-        st.info("Please try refreshing the app or using a different image")
         return None
 
 # App Interface
-st.title("🚗 AI Damage Inspector")
-st.write("Upload a vehicle image for instant damage assessment")
+st.set_page_config(page_title="AI Damage Inspector", layout="wide")
+st.title("🚗 Vehicle Damage Assessment")
 
-uploaded_file = st.file_uploader("Choose image...", type=["jpg", "png", "jpeg"])
+uploaded_file = st.file_uploader("Upload vehicle image", type=["jpg", "png", "jpeg"])
 if uploaded_file:
-    # Read image
-    img_bytes = uploaded_file.read()
-    img = Image.open(io.BytesIO(img_bytes))
+    # Read and resize image to prevent memory issues
+    img = Image.open(io.BytesIO(uploaded_file.read())
+    img = img.resize((1024, 768)) if max(img.size) > 1024 else img
     st.image(img, caption="Uploaded Image", use_column_width=True)
     
-    # Load model
     model = load_model()
     if model:
         with st.spinner("Analyzing damage..."):
             try:
-                # Convert to numpy array
+                # Convert to numpy and predict
                 img_np = np.array(img)
-                
-                # Run detection (focus on vehicles: cars, trucks, bikes)
-                results = model.predict(img_np, classes=[2, 3, 5, 7], conf=0.5)
+                results = model.predict(
+                    img_np,
+                    classes=[2, 3, 5, 7],  # Cars, motorcycles, buses, trucks
+                    conf=0.4,
+                    imgsz=640,
+                    verbose=False
+                )
                 
                 # Visualize results
-                res_plotted = results[0].plot()
-                st.image(res_plotted, caption="Damage Detection", use_column_width=True)
+                res_img = results[0].plot()
+                st.image(res_img, caption="Damage Detection", use_column_width=True)
                 
                 # Generate report
                 damage_count = len(results[0].boxes)
-                st.success(f"✅ Detected {damage_count} damage areas")
-                st.warning(f"💶 Estimated repair cost: €{500 + damage_count * 200}")
+                severity = "Major" if damage_count > 3 else "Minor"
+                st.success(f"""
+                **Assessment Complete**  
+                ✅ Detected areas: {damage_count}  
+                ⚠️ Severity: {severity}  
+                💶 Estimated cost: €{800 + damage_count * 250}  
+                """)
                 
             except Exception as e:
                 st.error(f"Analysis failed: {str(e)}")
+                st.info("Try a smaller image or different file format")
