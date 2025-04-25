@@ -146,7 +146,9 @@ if uploaded_file:
                 with tab1:
                     st.image(res_img, caption="Damage Detection", use_column_width=True)
                 
-                with tab2:
+               # Replace the problematic section in your app.py with this corrected code:
+
+with tab2:
     try:
         damage_count = len(results[0].boxes)
         severity = "High" if damage_count > 3 else "Low"
@@ -163,7 +165,7 @@ if uploaded_file:
             <p><b>Vehicle Type:</b> {vehicle_type}</p>
             <p><b>Damage Areas Found:</b> <span class="damage-count">{damage_count}</span></p>
             <p><b>Severity:</b> <span class="{severity_class}">{severity}</span></p>
-            <p><b>Estimated Repair Cost:</b> €{800 + damage_count * 250}</p>
+            <p><b>Estimated Repair Cost:</b> {'€'}{800 + damage_count * 250}</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -174,7 +176,7 @@ if uploaded_file:
         - Vehicle Type: {vehicle_type}
         - Damage Areas Found: {damage_count}
         - Severity: {severity}
-        - Estimated Repair Cost: €{800 + damage_count * 250}
+        - Estimated Repair Cost: {'€'}{800 + damage_count * 250}
         """
         st.download_button(
             label="📄 Download Full Report",
