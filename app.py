@@ -176,7 +176,7 @@ with tab2:
         - Vehicle Type: {vehicle_type}
         - Damage Areas Found: {damage_count}
         - Severity: {severity}
-        - Estimated Repair Cost: {'$'}{800 + damage_count * 250}
+        - Estimated Repair Cost: {'€'}{800 + damage_count * 250}
         """
         st.download_button(
             label="📄 Download Full Report",
@@ -191,7 +191,7 @@ with tab2:
     - Vehicle Type: {vehicle_type}
     - Damage Areas Found: {damage_count}
     - Severity: {severity}
-    - Estimated Repair Cost: €{800 + damage_count * 250}
+    - Estimated Repair Cost: cost = f"€{800 + damage_count * 250}"  # Alternative formatting
     """
     st.download_button(
         label="📄 Download Full Report",
