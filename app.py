@@ -147,28 +147,44 @@ if uploaded_file:
                     st.image(res_img, caption="Damage Detection", use_column_width=True)
                 
                 with tab2:
-    damage_count = len(results[0].boxes)
-    severity = "High" if damage_count > 3 else "Low"
-    severity_class = "severity-high" if severity == "High" else "severity-low"
+    try:
+        damage_count = len(results[0].boxes)
+        severity = "High" if damage_count > 3 else "Low"
+        severity_class = "severity-high" if severity == "High" else "severity-low"
+        
+        # Get vehicle type safely
+        vehicle_type = 'N/A'
+        if len(results[0].boxes) > 0:
+            vehicle_type = results[0].names[int(results[0].boxes.cls[0])]
+        
+        st.markdown(f"""
+        <div class="report-box">
+            <h3>Damage Assessment Report</h3>
+            <p><b>Vehicle Type:</b> {vehicle_type}</p>
+            <p><b>Damage Areas Found:</b> <span class="damage-count">{damage_count}</span></p>
+            <p><b>Severity:</b> <span class="{severity_class}">{severity}</span></p>
+            <p><b>Estimated Repair Cost:</b> €{800 + damage_count * 250}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Download report
+        report_text = f"""
+        AUTODAMAGE AI REPORT
+        ====================
+        - Vehicle Type: {vehicle_type}
+        - Damage Areas Found: {damage_count}
+        - Severity: {severity}
+        - Estimated Repair Cost: €{800 + damage_count * 250}
+        """
+        st.download_button(
+            label="📄 Download Full Report",
+            data=report_text,
+            file_name="damage_report.txt",
+            mime="text/plain"
+        )
     
-    # Get vehicle type safely
-    vehicle_type = 'N/A'
-    if len(results[0].boxes) > 0:
-        vehicle_type = results[0].names[int(results[0].boxes.cls[0])]
-    
-    st.markdown(f"""
-    <div class="report-box">
-        <h3>Damage Assessment Report</h3>
-        <p><b>Vehicle Type:</b> {vehicle_type}</p>
-        <p><b>Damage Areas Found:</b> <span class="damage-count">{damage_count}</span></p>
-        <p><b>Severity:</b> <span class="{severity_class}">{severity}</span></p>
-        <p><b>Estimated Repair Cost:</b> €{800 + damage_count * 250}</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Download report
-    report_text = f"""
-    AUTODAMAGE AI REPORT
+    except Exception as e:
+        st.error(f"Report generation failed: {str(e)}")
     ====================
     - Vehicle Type: {vehicle_type}
     - Damage Areas Found: {damage_count}
