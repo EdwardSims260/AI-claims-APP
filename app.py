@@ -159,7 +159,8 @@ with tab2:
         if len(results[0].boxes) > 0:
             vehicle_type = results[0].names[int(results[0].boxes.cls[0])]
         
-        st.markdown(f"""
+        # HTML Report
+        html_report = f"""
         <div class="report-box">
             <h3>Damage Assessment Report</h3>
             <p><b>Vehicle Type:</b> {vehicle_type}</p>
@@ -167,17 +168,18 @@ with tab2:
             <p><b>Severity:</b> <span class="{severity_class}">{severity}</span></p>
             <p><b>Estimated Repair Cost:</b> {'€'}{800 + damage_count * 250}</p>
         </div>
-        """, unsafe_allow_html=True)
-        
-        # Download report
-        report_text = f"""
-        AUTODAMAGE AI REPORT
-        ====================
-        - Vehicle Type: {vehicle_type}
-        - Damage Areas Found: {damage_count}
-        - Severity: {severity}
-        - Estimated Repair Cost: {'€'}{800 + damage_count * 250}
         """
+        st.markdown(html_report, unsafe_allow_html=True)
+        
+        # Text Report
+        report_text = f"""
+AUTODAMAGE AI REPORT
+====================
+- Vehicle Type: {vehicle_type}
+- Damage Areas Found: {damage_count}
+- Severity: {severity}
+- Estimated Repair Cost: {'€'}{800 + damage_count * 250}
+"""
         st.download_button(
             label="📄 Download Full Report",
             data=report_text,
