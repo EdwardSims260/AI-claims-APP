@@ -6,7 +6,7 @@ import cv2
 import io
 from contextlib import contextmanager
 
-# --- Custom CSS for UI Enhancements ---
+# Custom CSS for UI Enhancements
 st.markdown("""
 <style>
     .header {
@@ -49,7 +49,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- App Configuration ---
+# App Configuration
 st.set_page_config(
     page_title="AutoDamage AI",
     page_icon="🚗",
@@ -57,7 +57,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Sidebar ---
+# Sidebar
 with st.sidebar:
     st.title("Settings")
     confidence_threshold = st.slider(
@@ -77,10 +77,10 @@ with st.sidebar:
     4. Download the report
     """)
 
-# --- Main Content ---
+# Main Content
 st.markdown('<div class="header">AutoDamage AI Inspector</div>', unsafe_allow_html=True)
 
-# --- Model Loading (Cached) ---
+# Model Loading
 @contextmanager
 def custom_torch_load():
     original_load = torch.load
@@ -105,7 +105,7 @@ def load_model():
         st.error(f"Model loading failed: {str(e)}")
         return None
 
-# --- File Upload Section ---
+# File Upload Section
 upload_col, preview_col = st.columns([2, 1])
 with upload_col:
     uploaded_file = st.file_uploader(
@@ -114,19 +114,19 @@ with upload_col:
         help="Upload clear images of vehicle damage for best results"
     )
 
-# --- Image Processing ---
+# Image Processing
 if uploaded_file:
-    # Read and resize image
-    img = Image.open(io.BytesIO(uploaded_file.read()))
-    img = img.resize((1024, 768)) if max(img.size) > 1024 else img
-    
-    with preview_col:
-        st.image(img, caption="Original Image", use_column_width=True)
-    
-    model = load_model()
-    if model:
-        with st.spinner("🔍 Analyzing damage... This may take 10-20 seconds"):
-            try:
+    try:
+        # Read and resize image
+        img = Image.open(io.BytesIO(uploaded_file.read()))
+        img = img.resize((1024, 768)) if max(img.size) > 1024 else img
+        
+        with preview_col:
+            st.image(img, caption="Original Image", use_column_width=True)
+        
+        model = load_model()
+        if model:
+            with st.spinner("🔍 Analyzing damage... This may take 10-20 seconds"):
                 # Convert to numpy and predict
                 img_np = np.array(img)
                 results = model.predict(
@@ -137,72 +137,52 @@ if uploaded_file:
                     verbose=False
                 )
                 
-                # Visualize results
-                res_img = results[0].plot()
-                
-                # Display results in tabs
+                # Create tabs for results
                 tab1, tab2 = st.tabs(["Damage Visualization", "Assessment Report"])
                 
                 with tab1:
+                    res_img = results[0].plot()
                     st.image(res_img, caption="Damage Detection", use_column_width=True)
                 
-               # Replace the problematic section in your app.py with this corrected code:
-
-try:
-    with tab2:
-        damage_count = len(results[0].boxes)
-        severity = "High" if damage_count > 3 else "Low"
-        severity_class = "severity-high" if severity == "High" else "severity-low"
-        
-        # Get vehicle type safely
-        vehicle_type = 'N/A'
-        if len(results[0].boxes) > 0:
-            vehicle_type = results[0].names[int(results[0].boxes.cls[0])]
-        
-        # HTML Report
-        html_report = f"""
-<div class="report-box">
-    <h3>Damage Assessment Report</h3>
-    <p><b>Vehicle Type:</b> {vehicle_type}</p>
-    <p><b>Damage Areas Found:</b> <span class="damage-count">{damage_count}</span></p>
-    <p><b>Severity:</b> <span class="{severity_class}">{severity}</span></p>
-    <p><b>Estimated Repair Cost:</b> {'€'}{800 + damage_count * 250}</p>
-</div>
-"""
-        st.markdown(html_report, unsafe_allow_html=True)
-        
-        # Text Report
-        report_text = f"""
-AUTODAMAGE AI REPORT
-====================
-- Vehicle Type: {vehicle_type}
-- Damage Areas Found: {damage_count}
-- Severity: {severity}
-- Estimated Repair Cost: {'€'}{800 + damage_count * 250}
-"""
-        st.download_button(
-            label="📄 Download Full Report",
-            data=report_text,
-            file_name="damage_report.txt",
-            mime="text/plain"
-        )
-
-except Exception as e:
-    st.error(f"Report generation failed: {str(e)}")
-    st.info("Please try again with a different image")
-    ====================
-    - Vehicle Type: {vehicle_type}
-    - Damage Areas Found: {damage_count}
-    - Severity: {severity}
-    - Estimated Repair Cost: cost = f"€{800 + damage_count * 250}"  # Alternative formatting
+                # Corrected tab2 section
+                with tab2:
+                    damage_count = len(results[0].boxes)
+                    severity = "High" if damage_count > 3 else "Low"
+                    severity_class = "severity-high" if severity == "High" else "severity-low"
+                    
+                    # Get vehicle type safely
+                    vehicle_type = 'N/A'
+                    if len(results[0].boxes) > 0:
+                        vehicle_type = results[0].names[int(results[0].boxes.cls[0])]
+                    
+                    # HTML Report
+                    html_report = f"""
+                    <div class="report-box">
+                        <h3>Damage Assessment Report</h3>
+                        <p><b>Vehicle Type:</b> {vehicle_type}</p>
+                        <p><b>Damage Areas Found:</b> <span class="damage-count">{damage_count}</span></p>
+                        <p><b>Severity:</b> <span class="{severity_class}">{severity}</span></p>
+                        <p><b>Estimated Repair Cost:</b> {'€'}{800 + damage_count * 250}</p>
+                    </div>
+                    """
+                    st.markdown(html_report, unsafe_allow_html=True)
+                    
+                    # Text Report
+                    report_text = f"""
+                    AUTODAMAGE AI REPORT
+                    ====================
+                    - Vehicle Type: {vehicle_type}
+                    - Damage Areas Found: {damage_count}
+                    - Severity: {severity}
+                    - Estimated Repair Cost: {'€'}{800 + damage_count * 250}
+                    """
+                    st.download_button(
+                        label="📄 Download Full Report",
+                        data=report_text,
+                        file_name="damage_report.txt",
+                        mime="text/plain"
+                    )
     
-    st.download_button(
-        label="📄 Download Full Report",
-        data=report_text,
-        file_name="damage_report.txt",
-        mime="text/plain"
-    )
-                
-            except Exception as e:
-                st.error(f"Analysis failed: {str(e)}")
-                st.info("Try adjusting the confidence threshold or using a different image")
+    except Exception as e:
+        st.error(f"Processing failed: {str(e)}")
+        st.info("Please try a different image or adjust settings")
