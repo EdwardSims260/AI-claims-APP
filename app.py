@@ -1,53 +1,42 @@
 import streamlit as st
-import cv2
-import numpy as np
+import torch
 from PIL import Image
-import tempfile
+import numpy as np
+import cv2
 
-# Use a lightweight YOLO model
-MODEL_URL = "https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8n.pt"
-
+# Safe model loading function
 @st.cache_resource
 def load_model():
-    from ultralytics import YOLO
     try:
-        model = YOLO(MODEL_URL)
+        # Load with weights_only=False for YOLO compatibility
+        torch.load = lambda *args, **kwargs: torch.load(*args, **kwargs, weights_only=False)
+        from ultralytics import YOLO
+        model = YOLO('yolov8n.pt')
         return model
     except Exception as e:
         st.error(f"Model loading failed: {str(e)}")
         return None
 
-st.title("🚗 AI Damage Detector")
-st.write("Upload a vehicle image for damage assessment")
+st.title("🚗 Safe AI Damage Detector")
 
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
-
+uploaded_file = st.file_uploader("Upload vehicle image", type=["jpg", "png"])
 if uploaded_file:
-    with st.spinner("Analyzing..."):
-        try:
-            # Load image
-            img = Image.open(uploaded_file)
-            st.image(img, caption="Uploaded Image", use_column_width=True)
+    img = Image.open(uploaded_file)
+    st.image(img, caption="Uploaded Image")
+    
+    model = load_model()
+    if model:
+        with st.spinner("Detecting damage..."):
+            # Convert to numpy array
+            img_np = np.array(img)
             
-            # Convert to OpenCV format
-            img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+            # Run detection
+            results = model.predict(img_np, classes=[2,3,5,7])  # Cars, bikes, etc.
             
-            # Load model
-            model = load_model()
-            if model:
-                # Run detection (focus on vehicles: car=2, truck=7, motorcycle=3)
-                results = model.predict(img_cv, classes=[2, 3, 5, 7], conf=0.5)
-                
-                # Visualize results
-                res_img = results[0].plot()
-                res_img = cv2.cvtColor(res_img, cv2.COLOR_BGR2RGB)
-                st.image(res_img, caption="Damage Detection", use_column_width=True)
-                
-                # Simple damage report
-                damage_count = len(results[0].boxes)
-                st.success(f"✅ Detected {damage_count} damage areas")
-                st.warning(f"💶 Estimated repair cost: €{500 + damage_count * 200}")
+            # Visualize results
+            res_img = results[0].plot()
+            st.image(res_img, caption="Damage Detection")
             
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
-            st.info("Try a different image or check the console logs")
+            # Simple damage report
+            damage_count = len(results[0].boxes)
+            st.success(f"Found {damage_count} damage areas")
