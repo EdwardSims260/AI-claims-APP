@@ -1,3 +1,5 @@
+import streamlit as st
+
 st.set_page_config(
     page_title="AutoDamage AI",
     page_icon="🚗",
@@ -5,7 +7,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-import streamlit as st
 import torch
 from PIL import Image
 import numpy as np
