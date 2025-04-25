@@ -148,8 +148,8 @@ if uploaded_file:
                 
                # Replace the problematic section in your app.py with this corrected code:
 
-with tab2:
-    try:
+try:
+    with tab2:
         damage_count = len(results[0].boxes)
         severity = "High" if damage_count > 3 else "Low"
         severity_class = "severity-high" if severity == "High" else "severity-low"
@@ -161,14 +161,14 @@ with tab2:
         
         # HTML Report
         html_report = f"""
-        <div class="report-box">
-            <h3>Damage Assessment Report</h3>
-            <p><b>Vehicle Type:</b> {vehicle_type}</p>
-            <p><b>Damage Areas Found:</b> <span class="damage-count">{damage_count}</span></p>
-            <p><b>Severity:</b> <span class="{severity_class}">{severity}</span></p>
-            <p><b>Estimated Repair Cost:</b> {'€'}{800 + damage_count * 250}</p>
-        </div>
-        """
+<div class="report-box">
+    <h3>Damage Assessment Report</h3>
+    <p><b>Vehicle Type:</b> {vehicle_type}</p>
+    <p><b>Damage Areas Found:</b> <span class="damage-count">{damage_count}</span></p>
+    <p><b>Severity:</b> <span class="{severity_class}">{severity}</span></p>
+    <p><b>Estimated Repair Cost:</b> {'€'}{800 + damage_count * 250}</p>
+</div>
+"""
         st.markdown(html_report, unsafe_allow_html=True)
         
         # Text Report
@@ -186,9 +186,10 @@ AUTODAMAGE AI REPORT
             file_name="damage_report.txt",
             mime="text/plain"
         )
-    
-    except Exception as e:
-        st.error(f"Report generation failed: {str(e)}")
+
+except Exception as e:
+    st.error(f"Report generation failed: {str(e)}")
+    st.info("Please try again with a different image")
     ====================
     - Vehicle Type: {vehicle_type}
     - Damage Areas Found: {damage_count}
