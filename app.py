@@ -1,204 +1,219 @@
 import streamlit as st
+from PIL import Image
+from fpdf import FPDF
+import datetime
+import hashlib
+import uuid
 
+# App Configuration
 st.set_page_config(
-    page_title="AutoDamage AI",
+    page_title="CAI Digital - Constatazione Amichevole",
     page_icon="🚗",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-import torch
-from PIL import Image
-import numpy as np
-import cv2
-import io
-from contextlib import contextmanager
-
-# Custom CSS for UI Enhancements
+# Custom CSS
 st.markdown("""
 <style>
-    .header {
-        font-size: 2.5em !important;
-        color: #2E86C1 !important;
-        text-align: center;
+    .section {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 15px;
         margin-bottom: 20px;
     }
-    .sidebar .sidebar-content {
-        background-color: #f8f9fa;
+    .header {
+        color: #2E86C1;
+        margin-bottom: 30px;
     }
-    .stButton>button {
-        background-color: #28B463 !important;
-        color: white !important;
-        border-radius: 8px;
-        padding: 10px 24px;
+    .required:after {
+        content: " *";
+        color: red;
     }
-    .stProgress>div>div>div {
-        background-color: #28B463;
-    }
-    .report-box {
-        border-radius: 10px;
-        padding: 20px;
-        background-color: #E8F8F5;
-        margin-top: 20px;
-    }
-    .damage-count {
-        font-size: 1.8em;
-        color: #C0392B;
-        font-weight: bold;
-    }
-    .severity-high {
-        color: #E74C3C;
-        font-weight: bold;
-    }
-    .severity-low {
-        color: #28B463;
-        font-weight: bold;
+    .reference-box {
+        background-color: #f0f8ff;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# App Configuration
+# Reference Number System
+def generate_reference_number():
+    """Generate a unique reference number that can be shared between two parties"""
+    timestamp = str(datetime.datetime.now().timestamp())
+    unique_id = str(uuid.uuid4())
+    return hashlib.sha256((timestamp + unique_id).encode()).hexdigest()[:12].upper()
 
-# Sidebar
-with st.sidebar:
-    st.title("Settings")
-    confidence_threshold = st.slider(
-        "Detection Confidence", 
-        min_value=0.1, 
-        max_value=0.9, 
-        value=0.4, 
-        step=0.1,
-        help="Adjust how confident the model needs to be to detect damage"
-    )
-    st.markdown("---")
-    st.info("""
-    **How to use:**
-    1. Upload a vehicle image
-    2. Adjust detection settings
-    3. View damage assessment
-    4. Download the report
-    """)
+# Initialize session state
+if 'form_data' not in st.session_state:
+    st.session_state.form_data = {}
+    st.session_state.reference_number = None
+    st.session_state.reference_locked = False
 
-# Main Content
-st.markdown('<div class="header">AutoDamage AI Inspector</div>', unsafe_allow_html=True)
+# Main App
+st.title("📝 CAI Digital - Constatazione Amichevole")
+st.markdown("Compila il modulo digitale e genera il documento pronto per l'assicurazione")
 
-# Model Loading
-@contextmanager
-def custom_torch_load():
-    original_load = torch.load
-    def patched_load(*args, **kwargs):
-        kwargs.pop('weights_only', None)
-        return original_load(*args, **kwargs)
-    torch.load = patched_load
-    try:
-        yield
-    finally:
-        torch.load = original_load
-
-@st.cache_resource 
-def load_model():
-    try:
-        import torch
-        from ultralytics import YOLO
-        
-        # Create safe context for loading
-        @contextmanager
-        def torch_load_context():
-            original_load = torch.load
-            def custom_load(*args, **kwargs):
-                kwargs['weights_only'] = False  # Disable security check
-                return original_load(*args, **kwargs)
-            torch.load = custom_load
-            try:
-                yield
-            finally:
-                torch.load = original_load
-        
-        with torch_load_context():
-            model = YOLO('yolov8n.pt')
-            return model
-    except Exception as e:
-        st.error(f"Model loading failed: {str(e)}")
-        return None
-
-# File Upload Section
-upload_col, preview_col = st.columns([2, 1])
-with upload_col:
-    uploaded_file = st.file_uploader(
-        "Upload Vehicle Image", 
-        type=["jpg", "png", "jpeg"],
-        help="Upload clear images of vehicle damage for best results"
-    )
-
-# Image Processing
-if uploaded_file:
-    try:
-        # Read and resize image
-        img = Image.open(io.BytesIO(uploaded_file.read()))
-        img = img.resize((1024, 768)) if max(img.size) > 1024 else img
-        
-        with preview_col:
-            st.image(img, caption="Original Image", use_column_width=True)
-        
-        model = load_model()
-        if model:
-            with st.spinner("🔍 Analyzing damage... This may take 10-20 seconds"):
-                # Convert to numpy and predict
-                img_np = np.array(img)
-                results = model.predict(
-                    img_np,
-                    classes=[2, 3, 5, 7],
-                    conf=confidence_threshold,
-                    imgsz=640,
-                    verbose=False
-                )
-                
-                # Create tabs for results
-                tab1, tab2 = st.tabs(["Damage Visualization", "Assessment Report"])
-                
-                with tab1:
-                    res_img = results[0].plot()
-                    st.image(res_img, caption="Damage Detection", use_column_width=True)
-                
-                # Corrected tab2 section
-                with tab2:
-                    damage_count = len(results[0].boxes)
-                    severity = "High" if damage_count > 3 else "Low"
-                    severity_class = "severity-high" if severity == "High" else "severity-low"
-                    
-                    # Get vehicle type safely
-                    vehicle_type = 'N/A'
-                    if len(results[0].boxes) > 0:
-                        vehicle_type = results[0].names[int(results[0].boxes.cls[0])]
-                    
-                    # HTML Report
-                    html_report = f"""
-                    <div class="report-box">
-                        <h3>Damage Assessment Report</h3>
-                        <p><b>Vehicle Type:</b> {vehicle_type}</p>
-                        <p><b>Damage Areas Found:</b> <span class="damage-count">{damage_count}</span></p>
-                        <p><b>Severity:</b> <span class="{severity_class}">{severity}</span></p>
-                        <p><b>Estimated Repair Cost:</b> {'€'}{800 + damage_count * 250}</p>
-                    </div>
-                    """
-                    st.markdown(html_report, unsafe_allow_html=True)
-                    
-                    # Text Report
-                    report_text = f"""
-                    AUTODAMAGE AI REPORT
-                    ====================
-                    - Vehicle Type: {vehicle_type}
-                    - Damage Areas Found: {damage_count}
-                    - Severity: {severity}
-                    - Estimated Repair Cost: {'€'}{800 + damage_count * 250}
-                    """
-                    st.download_button(
-                        label="📄 Download Full Report",
-                        data=report_text,
-                        file_name="damage_report.txt",
-                        mime="text/plain"
-                    )
+# Reference Number Section
+with st.container():
+    st.subheader("Numero di Riferimento Condiviso")
     
-    except Exception as e:
-        st.error(f"Processing failed: {str(e)}")
-        st.info("Please try a different image or adjust settings")
+    if not st.session_state.reference_locked:
+        col1, col2 = st.columns([3,1])
+        with col1:
+            reference_action = st.radio("Scegli opzione riferimento:",
+                                      ["Genera nuovo numero", "Inserisci numero esistente"])
+            
+            if reference_action == "Genera nuovo numero":
+                if st.button("Genera Numero"):
+                    st.session_state.reference_number = generate_reference_number()
+                    st.session_state.reference_locked = True
+                    st.rerun()
+                    
+            else:
+                existing_ref = st.text_input("Inserisci numero riferimento esistente", 
+                                           max_chars=12).strip().upper()
+                if existing_ref:
+                    if len(existing_ref) == 12 and all(c.isalnum() for c in existing_ref):
+                        if st.button("Conferma Numero"):
+                            st.session_state.reference_number = existing_ref
+                            st.session_state.reference_locked = True
+                            st.rerun()
+                    else:
+                        st.warning("Il numero di riferimento deve essere di 12 caratteri alfanumerici")
+    
+    if st.session_state.reference_number:
+        st.markdown(f"""
+        <div class="reference-box">
+            <h4>Numero di Riferimento:</h4>
+            <h2>{st.session_state.reference_number}</h2>
+            <p>Condividi questo numero con l'altro conducente per collegare i vostri rapporti.</p>
+            <p><strong>Questo numero può essere utilizzato solo da 2 parti.</strong></p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("🔓 Sblocca e modifica numero"):
+            st.session_state.reference_locked = False
+            st.rerun()
+
+# Only show form if reference number is set
+if st.session_state.reference_number:
+    # Section 1: Basic Incident Information
+    with st.expander("1. Informazioni Base sull'Incidente", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.session_state.form_data['data_incidente'] = st.date_input("Data incidente", datetime.date.today())
+            st.session_state.form_data['luogo_comune'] = st.text_input("Comune")
+            st.session_state.form_data['luogo_provincia'] = st.text_input("Provincia")
+            st.session_state.form_data['luogo_via'] = st.text_input("Via e numero")
+        
+        with col2:
+            st.session_state.form_data['feriti'] = st.radio("Feriti (anche lievi)", ["No", "Sì"])
+            st.session_state.form_data['danni_veicoli_extra'] = st.radio("Danni ad altri veicoli", ["No", "Sì"])
+            st.session_state.form_data['danni_oggetti'] = st.radio("Danni ad oggetti", ["No", "Sì"])
+
+    # Section 2: Vehicle Information (Current Vehicle)
+    with st.expander("2. Informazioni sul tuo Veicolo"):
+        st.subheader("Proprietario/Assicurato")
+        st.session_state.form_data['cognome'] = st.text_input("Cognome (stampatello)")
+        st.session_state.form_data['nome'] = st.text_input("Nome")
+        st.session_state.form_data['cf'] = st.text_input("Codice Fiscale/Partita IVA")
+        
+        st.subheader("Veicolo")
+        st.session_state.form_data['marca'] = st.text_input("Marca/Tipo")
+        st.session_state.form_data['targa'] = st.text_input("Numero di targa/telaio")
+        
+        st.subheader("Assicurazione")
+        st.session_state.form_data['compagnia'] = st.text_input("Compagnia assicurativa")
+        st.session_state.form_data['polizza'] = st.text_input("Numero polizza")
+
+    # Section 3: Other Vehicle Information
+    with st.expander("3. Informazioni sull'Altro Veicolo"):
+        st.session_state.form_data['altro_cognome'] = st.text_input("Cognome conducente (stampatello)", key="altro_cognome")
+        st.session_state.form_data['altro_nome'] = st.text_input("Nome conducente", key="altro_nome")
+        st.session_state.form_data['altro_marca'] = st.text_input("Marca/Tipo veicolo", key="altro_marca")
+        st.session_state.form_data['altro_targa'] = st.text_input("Numero di targa/telaio", key="altro_targa")
+        st.session_state.form_data['altro_compagnia'] = st.text_input("Compagnia assicurativa", key="altro_compagnia")
+
+    # Section 4: Accident Details
+    with st.expander("4. Dettagli Incidente"):
+        st.subheader("Punti di urto")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image("vehicle_template.png", caption="Il tuo veicolo", width=300)
+            st.session_state.form_data['danni'] = st.text_area("Danni visibili al tuo veicolo")
+        with col2:
+            st.image("vehicle_template.png", caption="Altro veicolo", width=300)
+            st.session_state.form_data['altro_danni'] = st.text_area("Danni visibili all'altro veicolo")
+        
+        st.subheader("Circostanze")
+        options = [
+            "Riparte dopo sosta", "Apre una portiera", "Stava parcheggiando",
+            "Usciva da parcheggio", "Entrava in parcheggio", "Tamponamento",
+            "Cambio di corsia", "Sorpasso", "Girava a destra", "Girava a sinistra"
+        ]
+        st.session_state.form_data['circostanze'] = st.multiselect("Seleziona le circostanze applicabili", options)
+
+    # Section 5: Photo Upload
+    with st.expander("5. Foto dell'Incidente"):
+        uploaded_files = st.file_uploader("Carica foto dell'incidente (max 5)", 
+                                        type=["jpg", "png", "jpeg"],
+                                        accept_multiple_files=True)
+        
+        if uploaded_files:
+            st.session_state.form_data['foto'] = []
+            cols = st.columns(min(3, len(uploaded_files)))
+            for i, uploaded_file in enumerate(uploaded_files):
+                with cols[i % 3]:
+                    img = Image.open(uploaded_file)
+                    st.image(img, caption=f"Foto {i+1}", use_column_width=True)
+                    st.session_state.form_data['foto'].append(img)
+
+    # Section 6: Generate PDF
+    if st.button("🖨️ Genera Documento CAI Completo"):
+        # Create PDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        
+        # Add reference number
+        pdf.cell(200, 10, txt=f"RIFERIMENTO: {st.session_state.reference_number}", ln=1, align='C')
+        pdf.cell(200, 10, txt="CONSTATAZIONE AMICHEVOLE DI INCIDENTE", ln=1, align='C')
+        
+        # Add form data
+        pdf.cell(200, 10, txt=f"Data incidente: {st.session_state.form_data['data_incidente']}", ln=1)
+        pdf.cell(200, 10, txt=f"Luogo: {st.session_state.form_data['luogo_via']}, {st.session_state.form_data['luogo_comune']} ({st.session_state.form_data['luogo_provincia']})", ln=1)
+        
+        # Add vehicle info
+        pdf.cell(200, 10, txt="Veicolo 1:", ln=1)
+        pdf.cell(200, 10, txt=f"Proprietario: {st.session_state.form_data['cognome']} {st.session_state.form_data['nome']}", ln=1)
+        pdf.cell(200, 10, txt=f"Veicolo: {st.session_state.form_data['marca']} - {st.session_state.form_data['targa']}", ln=1)
+        
+        pdf.cell(200, 10, txt="Veicolo 2:", ln=1)
+        pdf.cell(200, 10, txt=f"Conducente: {st.session_state.form_data['altro_cognome']} {st.session_state.form_data['altro_nome']}", ln=1)
+        pdf.cell(200, 10, txt=f"Veicolo: {st.session_state.form_data['altro_marca']} - {st.session_state.form_data['altro_targa']}", ln=1)
+        
+        # Add photos (first 3 only for demo)
+        if 'foto' in st.session_state.form_data and st.session_state.form_data['foto']:
+            pdf.add_page()
+            pdf.cell(200, 10, txt="Foto dell'incidente:", ln=1)
+            for i, img in enumerate(st.session_state.form_data['foto'][:3]):  # Limit to 3 photos for demo
+                img_path = f"temp_img_{i}.jpg"
+                img.save(img_path)
+                pdf.image(img_path, x=10, y=20+i*60, w=180)
+        
+        # Save PDF to bytes
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        
+        # Download button
+        st.download_button(
+            label="📥 Scarica CAI Completo",
+            data=pdf_bytes,
+            file_name=f"CAI_{st.session_state.reference_number}.pdf",
+            mime="application/pdf"
+        )
+
+        st.success("Documento generato con successo! Scaricalo e invialo alla tua assicurazione.")
+else:
+    st.warning("Per continuare, genera o inserisci un numero di riferimento")
