@@ -98,15 +98,13 @@ def custom_torch_load():
 @st.cache_resource
 def load_model():
     try:
-        # Add safe globals for YOLO models
-        from torch.serialization import add_safe_globals
-        add_safe_globals([getattr(__import__('ultralytics.nn.tasks'), 'DetectionModel')])
-        
         from ultralytics import YOLO
-        model = YOLO('yolov8n.pt', verbose=False)
+        # Load model with safe settings
+        model = YOLO('yolov8n.pt')
         return model
     except Exception as e:
         st.error(f"Model loading failed: {str(e)}")
+        st.info("Make sure you're using ultralytics>=8.0.0")
         return None
 
 # File Upload Section
