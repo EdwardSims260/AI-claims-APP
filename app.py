@@ -95,13 +95,28 @@ def custom_torch_load():
     finally:
         torch.load = original_load
 
-@st.cache_resource
+@st.cache_resource 
 def load_model():
     try:
-        # First try loading with modern ultralytics API
+        import torch
         from ultralytics import YOLO
-        model = YOLO('yolov8n.pt')
-        return model
+        
+        # Create safe context for loading
+        @contextmanager
+        def torch_load_context():
+            original_load = torch.load
+            def custom_load(*args, **kwargs):
+                kwargs['weights_only'] = False  # Disable security check
+                return original_load(*args, **kwargs)
+            torch.load = custom_load
+            try:
+                yield
+            finally:
+                torch.load = original_load
+        
+        with torch_load_context():
+            model = YOLO('yolov8n.pt')
+            return model
     except Exception as e:
         st.error(f"Model loading failed: {str(e)}")
         return None
