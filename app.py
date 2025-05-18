@@ -1,11 +1,14 @@
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageDraw
 from fpdf import FPDF
 import datetime
 import hashlib
 import uuid
+import os
 
-IMAGE_PATH = os.path.join("images", "vehicle_template.png")
+# Initialize directories
+os.makedirs("images", exist_ok=True)
+
 # App Configuration
 st.set_page_config(
     page_title="CAI Digital - Constatazione Amichevole",
@@ -39,9 +42,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Reference Number System
+def create_vehicle_template():
+    """Create placeholder vehicle image"""
+    img = Image.new('RGB', (300, 200), color=(240, 240, 240))
+    d = ImageDraw.Draw(img)
+    d.rectangle([50, 50, 250, 150], outline='black', width=2)
+    d.text((100, 80), "VEHICLE TEMPLATE", fill='black')
+    return img
+
+def load_vehicle_image():
+    """Load or create vehicle template image"""
+    try:
+        return Image.open("images/vehicle_template.png")
+    except FileNotFoundError:
+        return create_vehicle_template()
+
 def generate_reference_number():
-    """Generate a unique reference number that can be shared between two parties"""
+    """Generate unique reference number"""
     timestamp = str(datetime.datetime.now().timestamp())
     unique_id = str(uuid.uuid4())
     return hashlib.sha256((timestamp + unique_id).encode()).hexdigest()[:12].upper()
@@ -98,7 +115,7 @@ with st.container():
             st.session_state.reference_locked = False
             st.rerun()
 
-# Only show form if reference number is set
+# Main Form
 if st.session_state.reference_number:
     # Section 1: Basic Incident Information
     with st.expander("1. Informazioni Base sull'Incidente", expanded=True):
@@ -114,7 +131,7 @@ if st.session_state.reference_number:
             st.session_state.form_data['danni_veicoli_extra'] = st.radio("Danni ad altri veicoli", ["No", "Sì"])
             st.session_state.form_data['danni_oggetti'] = st.radio("Danni ad oggetti", ["No", "Sì"])
 
-    # Section 2: Vehicle Information (Current Vehicle)
+    # Section 2: Vehicle Information
     with st.expander("2. Informazioni sul tuo Veicolo"):
         st.subheader("Proprietario/Assicurato")
         st.session_state.form_data['cognome'] = st.text_input("Cognome (stampatello)")
@@ -141,11 +158,15 @@ if st.session_state.reference_number:
     with st.expander("4. Dettagli Incidente"):
         st.subheader("Punti di urto")
         col1, col2 = st.columns(2)
+        
+        vehicle_img = load_vehicle_image()
+        
         with col1:
-            st.image("vehicle_template.png", caption="Il tuo veicolo", width=300)
+            st.image(vehicle_img, caption="Il tuo veicolo", width=300)
             st.session_state.form_data['danni'] = st.text_area("Danni visibili al tuo veicolo")
+        
         with col2:
-            st.image("vehicle_template.png", caption="Altro veicolo", width=300)
+            st.image(vehicle_img, caption="Altro veicolo", width=300)
             st.session_state.form_data['altro_danni'] = st.text_area("Danni visibili all'altro veicolo")
         
         st.subheader("Circostanze")
@@ -171,19 +192,13 @@ if st.session_state.reference_number:
                     st.image(img, caption=f"Foto {i+1}", use_column_width=True)
                     st.session_state.form_data['foto'].append(img)
 
-    if os.path.exists(IMAGE_PATH):
-    st.image(IMAGE_PATH, caption="Il tuo veicolo", width=300)
-else:
-    st.error("Vehicle template image not found. Please ensure images/vehicle_template.png exists.")
-
     # Section 6: Generate PDF
     if st.button("🖨️ Genera Documento CAI Completo"):
-        # Create PDF
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size=12)
         
-        # Add reference number
+        # Add content to PDF
         pdf.cell(200, 10, txt=f"RIFERIMENTO: {st.session_state.reference_number}", ln=1, align='C')
         pdf.cell(200, 10, txt="CONSTATAZIONE AMICHEVOLE DI INCIDENTE", ln=1, align='C')
         
@@ -200,26 +215,24 @@ else:
         pdf.cell(200, 10, txt=f"Conducente: {st.session_state.form_data['altro_cognome']} {st.session_state.form_data['altro_nome']}", ln=1)
         pdf.cell(200, 10, txt=f"Veicolo: {st.session_state.form_data['altro_marca']} - {st.session_state.form_data['altro_targa']}", ln=1)
         
-        # Add photos (first 3 only for demo)
+        # Add photos (first 3 only)
         if 'foto' in st.session_state.form_data and st.session_state.form_data['foto']:
             pdf.add_page()
             pdf.cell(200, 10, txt="Foto dell'incidente:", ln=1)
-            for i, img in enumerate(st.session_state.form_data['foto'][:3]):  # Limit to 3 photos for demo
+            for i, img in enumerate(st.session_state.form_data['foto'][:3]):
                 img_path = f"temp_img_{i}.jpg"
                 img.save(img_path)
                 pdf.image(img_path, x=10, y=20+i*60, w=180)
-        
-        # Save PDF to bytes
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
+                os.remove(img_path)  # Clean up temp file
         
         # Download button
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
         st.download_button(
             label="📥 Scarica CAI Completo",
             data=pdf_bytes,
             file_name=f"CAI_{st.session_state.reference_number}.pdf",
             mime="application/pdf"
         )
-
-        st.success("Documento generato con successo! Scaricalo e invialo alla tua assicurazione.")
+        st.success("Documento generato con successo!")
 else:
     st.warning("Per continuare, genera o inserisci un numero di riferimento")
