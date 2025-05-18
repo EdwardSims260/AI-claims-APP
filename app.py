@@ -193,7 +193,10 @@ if st.session_state.reference_number:
                     st.session_state.form_data['foto'].append(img)
 
     # Section 6: Generate PDF
-    if st.button("🖨️ Genera Documento CAI Completo"):
+    # Section 6: Generate PDF
+if st.button("🖨️ Genera Documento CAI Completo"):
+    try:
+        # Create PDF
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size=12)
@@ -225,8 +228,14 @@ if st.session_state.reference_number:
                 pdf.image(img_path, x=10, y=20+i*60, w=180)
                 os.remove(img_path)  # Clean up temp file
         
+        # Generate PDF bytes
+        pdf_output = pdf.output(dest='S')
+        if isinstance(pdf_output, str):
+            pdf_bytes = pdf_output.encode('latin1')
+        else:
+            pdf_bytes = pdf_output
+        
         # Download button
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
         st.download_button(
             label="📥 Scarica CAI Completo",
             data=pdf_bytes,
@@ -234,5 +243,6 @@ if st.session_state.reference_number:
             mime="application/pdf"
         )
         st.success("Documento generato con successo!")
-else:
-    st.warning("Per continuare, genera o inserisci un numero di riferimento")
+        
+    except Exception as e:
+        st.error(f"Errore durante la generazione del PDF: {str(e)}")
