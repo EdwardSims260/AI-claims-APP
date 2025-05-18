@@ -1,1 +1,10 @@
+import os
 
+# At the top of your script after imports
+IMAGE_PATH = os.path.join("images", "vehicle_template.png")
+
+# Then in your image display code
+if os.path.exists(IMAGE_PATH):
+    st.image(IMAGE_PATH, caption="Il tuo veicolo", width=300)
+else:
+    st.error("Vehicle template image not found. Please ensure images/vehicle_template.png exists.")
