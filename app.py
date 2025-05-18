@@ -169,7 +169,8 @@ if st.session_state.reference_number:
         st.session_state.form_data['altro_compagnia'] = st.text_input("Compagnia assicurativa", key="altro_compagnia")
 
     # Section 4: Accident Details
-    with st.expander("4. Dettagli Incidente"):
+    # Section 4: Accident Details - Corrected Version
+with st.expander("4. Dettagli Incidente"):
     st.subheader("Punti di urto")
     templates = load_vehicle_templates()
     
