@@ -50,12 +50,26 @@ def create_vehicle_template():
     d.text((100, 80), "VEHICLE TEMPLATE", fill='black')
     return img
 
-def load_vehicle_image():
-    """Load or create vehicle template image"""
-    try:
-        return Image.open("images/vehicle_template.png")
-    except FileNotFoundError:
-        return create_vehicle_template()
+def load_vehicle_templates():
+    """Load all vehicle template views with fallback placeholders"""
+    views = {
+        'front': "vehicle_template_front.png",
+        'rear': "vehicle_template_rear.png",
+        'side': "vehicle_template_side.png"
+    }
+    
+    templates = {}
+    for view, filename in views.items():
+        try:
+            templates[view] = Image.open(f"images/{filename}")
+        except FileNotFoundError:
+            # Create placeholder
+            img = Image.new('RGB', (300, 200), color=(240, 240, 240))
+            d = ImageDraw.Draw(img)
+            d.rectangle([50, 50, 250, 150], outline='black', width=2)
+            d.text((100, 80), f"{view.upper()} VIEW", fill='black')
+            templates[view] = img
+    return templates
 
 def generate_reference_number():
     """Generate unique reference number"""
@@ -156,26 +170,31 @@ if st.session_state.reference_number:
 
     # Section 4: Accident Details
     with st.expander("4. Dettagli Incidente"):
-        st.subheader("Punti di urto")
-        col1, col2 = st.columns(2)
-        
-        vehicle_img = load_vehicle_image()
-        
-        with col1:
-            st.image(vehicle_img, caption="Il tuo veicolo", width=300)
-            st.session_state.form_data['danni'] = st.text_area("Danni visibili al tuo veicolo")
-        
-        with col2:
-            st.image(vehicle_img, caption="Altro veicolo", width=300)
-            st.session_state.form_data['altro_danni'] = st.text_area("Danni visibili all'altro veicolo")
-        
-        st.subheader("Circostanze")
-        options = [
-            "Riparte dopo sosta", "Apre una portiera", "Stava parcheggiando",
-            "Usciva da parcheggio", "Entrava in parcheggio", "Tamponamento",
-            "Cambio di corsia", "Sorpasso", "Girava a destra", "Girava a sinistra"
-        ]
-        st.session_state.form_data['circostanze'] = st.multiselect("Seleziona le circostanze applicabili", options)
+    st.subheader("Punti di urto")
+    templates = load_vehicle_templates()
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Il tuo veicolo")
+        tab1, tab2, tab3 = st.tabs(["Anteriore", "Posteriore", "Laterale"])
+        with tab1:
+            st.image(templates['front'], use_column_width=True)
+        with tab2:
+            st.image(templates['rear'], use_column_width=True)
+        with tab3:
+            st.image(templates['side'], use_column_width=True)
+        st.session_state.form_data['danni'] = st.text_area("Danni visibili al tuo veicolo")
+    
+    with col2:
+        st.subheader("Altro veicolo")
+        tab1, tab2, tab3 = st.tabs(["Anteriore", "Posteriore", "Laterale"])
+        with tab1:
+            st.image(templates['front'], use_column_width=True)
+        with tab2:
+            st.image(templates['rear'], use_column_width=True)
+        with tab3:
+            st.image(templates['side'], use_column_width=True)
+        st.session_state.form_data['altro_danni'] = st.text_area("Danni visibili all'altro veicolo")
 
     # Section 5: Photo Upload
     with st.expander("5. Foto dell'Incidente"):
