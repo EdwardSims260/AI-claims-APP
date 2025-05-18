@@ -5,6 +5,7 @@ import datetime
 import hashlib
 import uuid
 
+IMAGE_PATH = os.path.join("images", "vehicle_template.png")
 # App Configuration
 st.set_page_config(
     page_title="CAI Digital - Constatazione Amichevole",
@@ -169,6 +170,11 @@ if st.session_state.reference_number:
                     img = Image.open(uploaded_file)
                     st.image(img, caption=f"Foto {i+1}", use_column_width=True)
                     st.session_state.form_data['foto'].append(img)
+
+    if os.path.exists(IMAGE_PATH):
+    st.image(IMAGE_PATH, caption="Il tuo veicolo", width=300)
+else:
+    st.error("Vehicle template image not found. Please ensure images/vehicle_template.png exists.")
 
     # Section 6: Generate PDF
     if st.button("🖨️ Genera Documento CAI Completo"):
